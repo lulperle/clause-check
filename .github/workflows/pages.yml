@@ -1,0 +1,42 @@
+name: pages
+
+# The review screen is worth looking at, and asking someone to clone a repository and run
+# a dev server to look at it means they will not. Both extraction bundles are committed,
+# so the deployed site is the whole thing -- no backend, no credentials, no model calls.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Served from /clause-check/, not the domain root, so the asset URLs have to know it.
+      - run: npm run build
+        env:
+          BASE_PATH: /clause-check/
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+      - id: deploy
+        uses: actions/deploy-pages@v4
