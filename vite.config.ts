@@ -9,8 +9,29 @@ export default defineConfig({
   // asset URLs. Defaults to '/' for local development.
   base: process.env.BASE_PATH ?? '/',
   test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: ['./src/test/setup.ts'],
+    // Two projects because the app runs in a browser and the three API interfaces run in
+    // node. One shared jsdom environment would let an api test pass against a DOM that will
+    // not exist in production, and `node:http` under jsdom is a different thing again.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'app',
+          environment: 'jsdom',
+          globals: true,
+          setupFiles: ['./src/test/setup.ts'],
+          include: ['src/**/*.test.{ts,tsx}'],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'api',
+          environment: 'node',
+          globals: true,
+          include: ['api/**/*.test.ts'],
+        },
+      },
+    ],
   },
 });

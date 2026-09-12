@@ -8,11 +8,13 @@
 pipeline/  Bedrock (Claude Sonnet 5) で抽出 → 引用文を原文内に位置特定 → labels.yaml と照合
 src/       React 19 + TypeScript のレビュー画面。bundle を検証してから描画する
 public/    ガード付き / ガードなし、2つの実行結果（committed）
+api/       同じデータへの3経路: REST / GraphQL / MCP。差分を測って comparison.json に残す
 ```
 
 - **触れる画面: https://lulperle.github.io/clause-check/** （ガードなしプロンプトの結果は [`?run=naive`](https://lulperle.github.io/clause-check/?run=naive)）
 - ローカル: `npm ci && npm run dev`
 - 数値の再計算: `cd pipeline && python rescore.py ../public/extraction.json` （モデル呼び出しなし）
+- 同じデータの REST / GraphQL / MCP: `npm run api` / `npm run mcp`（[測った差分](#同じデータに3経路rest--graphql--mcp)）
 
 ---
 
@@ -86,14 +88,61 @@ if (normalise(text.slice(start, end)) !== normalise(field.quote)) {
 - 却下した項目の export は `agreed: null`。人が明示的に拒否した値を下流が拾うのは、抽出を動かさないより悪い。
 - 判断は localStorage に残る（`clause-check/decisions/v1`）。復元より先に保存 effect が走って空で上書きしないよう、[src/hooks/useDecisions.ts](src/hooks/useDecisions.ts) が `restored` ref で順序を守っている。
 
+## 同じデータに3経路（REST / GraphQL / MCP）
+
+同じ store（[api/store.ts](api/store.ts)）の上に3つのインターフェースを載せてある。実装を3つ書いたのではなく、**データ層を1つに固定して、インターフェースの差だけが出るようにした**。3つが別々にデータを読んでいたら、下の表はインターフェースの比較ではなく3つの実装の比較になる。
+
+数字は [api/measure.ts](api/measure.ts) が生成して [api/comparison.json](api/comparison.json) に commit してある。CI が `--check` で再生成して差分を見るので、本文の数字とコードがずれたら落ちる。
+
+### 転送量と往復回数
+
+| 用途 | REST | GraphQL | MCP |
+|---|---|---|---|
+| タブ4つ（id と title だけ） | 429 B / 1回 | **295 B** / 1回 | 660 B / 1回 |
+| レビュー画面1件（原文＋9項目） | 9,431 B / 1回 | **7,680 B** / 1回 | 10,097 B / 1回 |
+| エージェントの質問1件（1項目＋引用検証） | 696 B / **2回** | **354 B** / 1回 | 773 B / 2回 |
+
+レビュー画面の行が一番正直な行。GraphQL に**REST と同じ項目を全部**要求すると 9,246 B で、差は 185 B（2%）しかない。つまり効率のいいプロトコルなのではなく、**項目を落とせることが効いている**。7,680 B との差 1,566 B は、画面が一度も描画しない `question`（各項目の設問文、日本語で9本）を要求しなかった分である。REST 側で同じことをやるには表現を2つ用意する（`?fields=` を実装するか、別ルートを足す）。
+
+MCP が一番重いのは設計上そうしている。整形して読める JSON を返し、エラーは文章で返す。consumer がモデルなので、**バイト数を払って1回で正しく呼べる確率を買っている**。ツール定義そのものも 5,200 B（うち説明文 1,572 B）を、1回もツールを呼ばなくてもセッションの頭で払う。
+
+### 失敗したときの形（ここが一番分かれる）
+
+| 失敗 | REST | GraphQL | MCP |
+|---|---|---|---|
+| 存在しない文書 ID | 404 `no_such_document` | **200、`errors` も無し**、`data.document: null` | `isError`、有効な4つの ID を列挙 |
+| 存在しない項目名 | 404 `no_such_field` | **400**（実行前に validation で落ちる） | `isError`、その文書の項目名を列挙 |
+| 原文に無い引用 | 200 `grounded: false` | 200 `grounded: false` | `isError` ではない、`grounded: false` |
+| non-null フィールドの中での失敗 | 404 | **200 + `errors`**、`data: null` | `isError`、代替を提示 |
+
+GraphQL の1行目が、実装してみて一番効いた発見。`document` を nullable にしたので、**存在しない ID が「成功した null」として返る** — `errors` すら付かない。呼び出し側は「そんな契約書は無い」と「この契約書に title が無い」を区別できない。区別させるには union 型か error extension の規約を自分で決める必要があり、REST では 404 が最初から与えてくれるものだった。
+
+4行目は逆に GraphQL の仕様どおりの挙動で、それが罠。**アプリケーションが失敗しても HTTP は 200** なので、ステータスコードで見ている監視は「正常」と読む。GraphQL を出すなら `errors` を見る監視を先に作る必要がある。2行目は GraphQL が勝つ側で、項目名の綴り間違いは**何も実行される前に** 400 で落ちる。REST は実行してから 404 を返すしかない。
+
+MCP の列は全部「モデルが自分で直せる情報を返す」に寄せてある。`no_such_document` を返すだけなら、モデルは同じ呼び出しをもう一度やる。有効な ID を並べれば、次の呼び出しで直る。
+
+### グラフ特有のコストは自分で塞ぐ
+
+`{ documents { fields { key comparison { value } } } }` は 4 KB しか返さないのに **resolver は 41 回**呼ばれる（1 + 4文書 + 36項目）。小さいクエリでサーバー側が高くつく非対称は、形が固定された REST ルートには存在しない。なので depth 6 / cost 2000 の上限を validation rule として自分で書いた（[api/graphql.ts](api/graphql.ts)）。`comparison` が自分自身を返すので、上限が無ければ入れ子は無限に深くできる。
+
+### MCP は説明文がインターフェース
+
+REST の OpenAPI の説明文は文書で、無視するクライアントでも動く。MCP の description は**モデルが呼び出しを決める瞬間に読むもの**なので、引数名と同じ重みで挙動を決める。この repository は既にその効果の大きさを測っている（ガード付き 36/36 対 ガードなし 34/36＋捏造1件）ので、ツールの説明文もガード付きプロンプトと同じ書き方にした: **null が何を意味するか**を書く、**呼ぶべきでない時**を書く。テストが「全ツールに80文字以上の説明がある」「`does not state` が説明文に含まれる」を検査している。
+
+`verify_quote` がこの経路を足した理由に一番近い。エージェントは契約書のもっともらしい一文を捏造できて、捏造の方が実在の条項より読みやすい。このツールは検証をサーバー側の機械的な処理にして、やったことを transcript に残す。テストでは**ガードなし実行が実際に出した捏造引用**（committed bundle の中にある）を渡して `grounded: false` を確認している。作った例ではない。
+
 ## 動かす
 
 ```bash
 npm ci
-npm test          # 56 tests
+npm test          # 118 tests（画面 56 / API 62）
 npm run typecheck
 npm run lint
 npm run dev
+
+npm run api       # REST + GraphQL を localhost:8787 に
+npm run mcp       # MCP サーバー（stdio。エディタや Claude Desktop から起動される形）
+npm run measure   # 3経路を測って api/comparison.json を再生成
 
 cd pipeline
 pip install -r requirements.txt
@@ -108,7 +157,17 @@ python extract.py                    # 4文書、4回の呼び出しで数セン
 python extract.py --doc saas-riyo --naive
 ```
 
-CI は committed bundle だけで回る。認証情報を持たず、README の数値を `rescore.py --expect` で再計算して照合するので、bundle と本文がずれたら落ちる。
+試しに叩く:
+
+```bash
+curl -s localhost:8787/documents | jq '.documents[].id'
+curl -s -X POST localhost:8787/documents/saas-riyo/verify \
+  -H 'content-type: application/json' -d '{"quote":"本契約は無期限に自動更新される"}'
+curl -s -X POST localhost:8787/graphql -H 'content-type: application/json' \
+  -d '{"query":"{ documents { id title ungrounded } }"}'
+```
+
+CI は committed bundle だけで回る。認証情報を持たず、README の数値を `rescore.py --expect` と `measure.ts --check` で再計算して照合するので、bundle・comparison.json・本文のいずれかがずれたら落ちる。
 
 ## これは何ではないか
 
@@ -116,5 +175,7 @@ CI は committed bundle だけで回る。認証情報を持たず、README の�
 - **PDFもOCRも扱わない**。入力はプレーンテキスト。ハイライトは文字オフセットで行う。実務では PDF の座標に写す層が必要で、そこは別の問題として省いた。日本語の帳票OCRについては検証していないので、何も主張しない。
 - **36項目は統計的な主張には足りない**。ガードなしで壊れた3項目は「代表的な失敗率」ではなく、仕込んだ罠に落ちた実例である。
 - **レビュー結果を学習に戻す仕組みはない**。上書き率は人が読むための数字で、自動でプロンプトを直したりはしない。
+- **3経路の API は読み取り専用で、認証もレート制限も無い**。デプロイもしていない（GitHub Pages は静的配信なのでサーバーは載らない）。深さと概算コストの上限だけは付けたが、これは公開する API に必要なものの一部でしかない。**測ったのはインターフェースの形の差**（転送量、往復回数、失敗時の形）であって、運用に耐えるかは別の話である。
+- **転送量の絶対値は読めない**。4通・36項目のこのデータでの比較で、しかも日本語なので UTF-8 は1文字3バイト。桁が変われば結論が変わる箇所（往復回数は変わらない、バイト数は変わる）がある。
 
 姉妹 repository: [guide-gap](https://github.com/lulperle/guide-gap)（問い合わせとドキュメントの差分検出）と [guide-review](https://github.com/lulperle/guide-review)（その結果のレビュー画面）。
