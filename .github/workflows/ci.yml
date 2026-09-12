@@ -1,0 +1,60 @@
+name: ci
+
+# Both extraction runs are committed under public/, so everything here is a pure
+# function of the repository: no AWS credentials, no model calls, nothing to leak.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: pip install -r pipeline/requirements.txt
+      - run: ruff check pipeline
+      - run: ruff format --check pipeline
+      - name: pytest
+        working-directory: pipeline
+        run: python -m pytest -q
+
+  scores:
+    # The numbers in the README are recomputed from the committed bundles, so a bundle
+    # that stops matching its claimed tally fails here rather than in a reader's head.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - run: pip install -r pipeline/requirements.txt
+      - working-directory: pipeline
+        run: |
+          python rescore.py ../public/extraction.json \
+            --expect correct=28 --expect correct_absent=8 --expect ungrounded=0 \
+            --expect wrong=0 --expect invented=0 --expect missed=0 --expect absent_as_prose=0
+          python rescore.py ../public/extraction-naive.json \
+            --expect correct=28 --expect correct_absent=6 --expect absent_as_prose=1 \
+            --expect invented=1 --expect ungrounded=1

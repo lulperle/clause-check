@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 96
+# The pipeline modules import each other by bare name (`from score import ...`), which ruff
+# only classifies as first-party if it knows this directory is the source root. Without it,
+# import sorting comes out differently depending on the directory ruff is invoked from, and
+# CI disagrees with the machine the code was written on.
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

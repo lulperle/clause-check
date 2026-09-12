@@ -1,0 +1,281 @@
+{
+  "generated": "2026-09-12T10:08:47+00:00",
+  "run": {
+    "model": "us.anthropic.claude-sonnet-5",
+    "region": "us-west-2",
+    "calls": 4,
+    "input_tokens": 13000,
+    "output_tokens": 3631,
+    "seconds": 38.8,
+    "truncated": 0,
+    "errors": [],
+    "prompt": "naive",
+    "documents": 4,
+    "fields_per_document": 9,
+    "ungrounded_quotes": 1,
+    "ambiguous_quotes": 0
+  },
+  "tally": {
+    "correct": 28,
+    "correct_absent": 6,
+    "absent_as_prose": 1,
+    "missed": 0,
+    "wrong": 0,
+    "invented": 1
+  },
+  "ungrounded_quotes": 1,
+  "details": [
+    {
+      "document": "gyomu-itaku",
+      "field": "parties",
+      "outcome": "correct",
+      "value": "甲:株式会社ミドリ商事、乙:合同会社ハヤブサ・テクノロジーズ",
+      "grounded": true
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "term",
+      "outcome": "correct",
+      "value": "2025年4月1日から2027年3月31日まで",
+      "grounded": true
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "auto_renewal",
+      "outcome": "correct",
+      "value": "期間満了の3か月前までにいずれからも異議がなければ同一条件でさらに1年間更新（以後同様）",
+      "grounded": true
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "payment_due",
+      "outcome": "correct",
+      "value": "検収完了後、乙の請求に基づき、請求書を受領した月の翌月末日まで",
+      "grounded": true
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "termination_notice",
+      "outcome": "correct",
+      "value": "6か月前までの書面通知",
+      "grounded": true
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "liability_cap",
+      "outcome": "correct_absent",
+      "value": null,
+      "grounded": false
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "subcontracting",
+      "outcome": "correct",
+      "value": "再委託には甲の事前書面承諾が必要。再委託先の行為について乙が甲に対して全責任を負う。",
+      "grounded": false
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "confidentiality_survival",
+      "outcome": "correct",
+      "value": "本契約終了後5年間",
+      "grounded": true
+    },
+    {
+      "document": "gyomu-itaku",
+      "field": "jurisdiction",
+      "outcome": "correct",
+      "value": "東京地方裁判所（専属的合意管轄）",
+      "grounded": true
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "parties",
+      "outcome": "correct",
+      "value": "甲:株式会社トウホク精機、乙:株式会社セントラル・アナリティクス",
+      "grounded": true
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "term",
+      "outcome": "correct",
+      "value": "2026年1月15日から2年間",
+      "grounded": true
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "auto_renewal",
+      "outcome": "correct_absent",
+      "value": null,
+      "grounded": false
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "payment_due",
+      "outcome": "correct_absent",
+      "value": null,
+      "grounded": false
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "termination_notice",
+      "outcome": "correct_absent",
+      "value": null,
+      "grounded": false
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "liability_cap",
+      "outcome": "correct_absent",
+      "value": null,
+      "grounded": false
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "subcontracting",
+      "outcome": "correct_absent",
+      "value": null,
+      "grounded": false
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "confidentiality_survival",
+      "outcome": "correct",
+      "value": "本契約終了後5年間",
+      "grounded": true
+    },
+    {
+      "document": "himitsu-hoji",
+      "field": "jurisdiction",
+      "outcome": "correct",
+      "value": "東京地方裁判所",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "parties",
+      "outcome": "correct",
+      "value": "甲: 株式会社アオゾラ・クラウド、乙: 株式会社カワセ物流",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "term",
+      "outcome": "correct",
+      "value": "2025年10月1日から2026年9月30日までの1年間",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "auto_renewal",
+      "outcome": "correct",
+      "value": "期間満了の30日前までに解約の申出がない場合、同一条件で1年間自動更新される",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "payment_due",
+      "outcome": "correct",
+      "value": "請求書発行日の属する月の翌月20日まで",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "termination_notice",
+      "outcome": "invented",
+      "value": "期間満了の30日前まで（自動更新回避のための解約申出期限）",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "liability_cap",
+      "outcome": "correct",
+      "value": "損害発生時点から遡って直近12か月間に乙が甲に支払った利用料金の総額",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "subcontracting",
+      "outcome": "absent_as_prose",
+      "value": "定めなし（再委託・第三者委託に関する条項はないが、乙による第三者へのアクセス権共有・再販売は禁止されている）",
+      "grounded": false
+    },
+    {
+      "document": "saas-riyo",
+      "field": "confidentiality_survival",
+      "outcome": "correct",
+      "value": "本契約終了後3年間",
+      "grounded": true
+    },
+    {
+      "document": "saas-riyo",
+      "field": "jurisdiction",
+      "outcome": "correct",
+      "value": "甲の本店所在地を管轄する地方裁判所（専属的合意管轄）",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "parties",
+      "outcome": "correct",
+      "value": "甲:株式会社ナニワ産業、乙:鈴鹿電子部品株式会社",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "term",
+      "outcome": "correct",
+      "value": "2025年7月1日から1年間",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "auto_renewal",
+      "outcome": "correct",
+      "value": "期間満了の2か月前までに甲乙いずれからも書面による申出がない場合、同一条件でさらに1年間更新（以後同様）",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "payment_due",
+      "outcome": "correct",
+      "value": "毎月20日締め、翌月10日までに銀行振込で支払う",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "termination_notice",
+      "outcome": "correct",
+      "value": "90日前までに相手方に書面で通知",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "liability_cap",
+      "outcome": "correct",
+      "value": "当該損害の原因となった個別契約の代金額又は1,000万円のいずれか低い額（故意・重過失の場合は適用除外）",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "subcontracting",
+      "outcome": "correct",
+      "value": "乙は商品の製造を第三者に委託することを禁止（甲の事前の書面承諾がある場合を除く）",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "confidentiality_survival",
+      "outcome": "correct",
+      "value": "本契約終了後3年間",
+      "grounded": true
+    },
+    {
+      "document": "torihiki-kihon",
+      "field": "jurisdiction",
+      "outcome": "correct",
+      "value": "大阪地方裁判所（専属的合意管轄）",
+      "grounded": true
+    }
+  ]
+}

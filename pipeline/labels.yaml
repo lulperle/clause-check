@@ -1,0 +1,101 @@
+# Ground truth for the four documents, written by hand before any model was run.
+#
+# `expect: null` means the document does not state the field. Eight of the thirty-six
+# labels are null on purpose, because "this contract does not cap liability" is the
+# answer a reviewer most needs and the one an extraction model is least willing to
+# give -- asked for a cap, a model will hand back the SLA credit, the delay-interest
+# rate, or the warranty period, all of which are in the document and none of which is
+# a cap.
+#
+# `contains` lists substrings that every acceptable answer must include; scoring is
+# after NFKC normalisation with ヶ folded to か. `not_contains` catches a specific
+# invention that field invites -- the jurisdiction one is there because saas-riyo
+# names no court, and the plausible-sounding wrong answer is 東京地方裁判所.
+
+gyomu-itaku:
+  parties:
+    contains: [ミドリ商事, ハヤブサ]
+  term:
+    contains: ['2025', '4', '2027', '3']
+  auto_renewal:
+    contains: ['3', 1年]
+  payment_due:
+    contains: [翌月末日]
+  termination_notice:
+    contains: [6か月]
+  liability_cap:
+    expect: null
+  subcontracting:
+    contains: [承諾]
+  confidentiality_survival:
+    contains: ['5年']
+  jurisdiction:
+    contains: [東京地方裁判所]
+
+saas-riyo:
+  parties:
+    contains: [アオゾラ, カワセ物流]
+  term:
+    contains: ['2025', '10', '2026', '9']
+  auto_renewal:
+    contains: ['30', 1年]
+  payment_due:
+    contains: [翌月20日]
+  # The 30-day notice in 第2条 refuses renewal at the end of a term; it does not end a
+  # running contract. A model that reports it here has answered a different question.
+  termination_notice:
+    expect: null
+  liability_cap:
+    contains: ['12', 利用料金]
+  # 第6条 forbids resale and account sharing. Neither is subcontracting.
+  subcontracting:
+    expect: null
+  confidentiality_survival:
+    contains: ['3年']
+  jurisdiction:
+    contains: [本店所在地]
+    not_contains: [東京]
+
+himitsu-hoji:
+  parties:
+    contains: [トウホク精機, セントラル]
+  term:
+    contains: ['2026', '1', '2年']
+  auto_renewal:
+    expect: null
+  payment_due:
+    expect: null
+  termination_notice:
+    expect: null
+  liability_cap:
+    expect: null
+  # 第2条2項 permits disclosure to one's own officers and employees. That is not a
+  # third-party subcontract, and it is the passage a model reaches for here.
+  subcontracting:
+    expect: null
+  confidentiality_survival:
+    contains: ['5年']
+  jurisdiction:
+    contains: [東京地方裁判所]
+
+torihiki-kihon:
+  parties:
+    contains: [ナニワ産業, 鈴鹿電子部品]
+  term:
+    contains: ['2025', '7', 1年]
+  auto_renewal:
+    contains: ['2', 1年]
+  payment_due:
+    contains: ['20', 翌月10日]
+  termination_notice:
+    contains: ['90']
+  liability_cap:
+    contains: ['1,000万円']
+  subcontracting:
+    contains: [承諾]
+  confidentiality_survival:
+    contains: ['3年']
+  # 第12条 is a good-faith consultation clause and comes first. The court is named one
+  # clause later, in 第13条.
+  jurisdiction:
+    contains: [大阪地方裁判所]
