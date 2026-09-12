@@ -10,7 +10,7 @@ src/       React 19 + TypeScript のレビュー画面。bundle を検証して�
 public/    ガード付き / ガードなし、2つの実行結果（committed）
 ```
 
-- **触れる画面: https://milkwhite-lul.github.io/clause-check/** （ガードなしプロンプトの結果は [`?run=naive`](https://milkwhite-lul.github.io/clause-check/?run=naive)）
+- **触れる画面: https://lulperle.github.io/clause-check/** （ガードなしプロンプトの結果は [`?run=naive`](https://lulperle.github.io/clause-check/?run=naive)）
 - ローカル: `npm ci && npm run dev`
 - 数値の再計算: `cd pipeline && python rescore.py ../public/extraction.json` （モデル呼び出しなし）
 
@@ -117,4 +117,4 @@ CI は committed bundle だけで回る。認証情報を持たず、README の�
 - **36項目は統計的な主張には足りない**。ガードなしで壊れた3項目は「代表的な失敗率」ではなく、仕込んだ罠に落ちた実例である。
 - **レビュー結果を学習に戻す仕組みはない**。上書き率は人が読むための数字で、自動でプロンプトを直したりはしない。
 
-姉妹 repository: [guide-gap](https://github.com/milkwhite-lul/guide-gap)（問い合わせとドキュメントの差分検出）と [guide-review](https://github.com/milkwhite-lul/guide-review)（その結果のレビュー画面）。
+姉妹 repository: [guide-gap](https://github.com/lulperle/guide-gap)（問い合わせとドキュメントの差分検出）と [guide-review](https://github.com/lulperle/guide-review)（その結果のレビュー画面）。
