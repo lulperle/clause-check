@@ -61,6 +61,16 @@ header h1 {
   gap: 0.6rem;
 }
 
+/* Full width on its own line: the header wraps, and a disclaimer that shares a row with
+   the scoreboard gets read as another statistic. */
+.disclaimer {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--dim);
+}
+
 .run {
   font-size: 0.7rem;
   font-weight: 500;

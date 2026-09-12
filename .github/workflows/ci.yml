@@ -7,6 +7,11 @@ on:
     branches: [main]
   pull_request:
 
+# Nothing here writes anything back. Stated rather than inherited, so that changing the
+# account-wide default from read to write later does not silently widen this token.
+permissions:
+  contents: read
+
 jobs:
   app:
     runs-on: ubuntu-latest

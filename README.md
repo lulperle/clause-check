@@ -90,7 +90,7 @@ if (normalise(text.slice(start, end)) !== normalise(field.quote)) {
 
 ```bash
 npm ci
-npm test          # 55 tests
+npm test          # 56 tests
 npm run typecheck
 npm run lint
 npm run dev

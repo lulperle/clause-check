@@ -140,6 +140,14 @@ describe('App', () => {
     );
   });
 
+  it('says on the screen that the contracts are fictional', async () => {
+    // The deployed site is public and the documents carry company names and addresses.
+    // Someone arriving from a search result sees this screen and not the README.
+    serve(bundle());
+    render(<App />);
+    expect(await screen.findByText(/架空のものです/)).toBeVisible();
+  });
+
   it('shows which prompt produced the bundle', async () => {
     // The guarded and naive runs differ in accuracy, so a screen that hid this would let
     // the reader credit the model for the prompt's work.

@@ -185,6 +185,13 @@ export default function App() {
         <button type="button" className="download" onClick={download}>
           結果を書き出す
         </button>
+        {/* The site is public and the contracts read like real ones --署名欄に社名と住所が
+            並んでいる -- so the notice belongs on the screen, not only in the README. A
+            reader who lands here from a search result never sees the README. */}
+        <p className="disclaimer">
+          この4通の契約書はすべて架空のものです。社名・住所・氏名を含め実在しません。抽出の
+          難易度を測るために、項目ごとに「もっともらしい誤答先」を意図的に仕込んでいます。
+        </p>
       </header>
 
       <nav className="documents">
