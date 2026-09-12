@@ -14,7 +14,7 @@
 
 gyomu-itaku:
   parties:
-    contains: [noexist, ハヤブサ]
+    contains: [noexist1, noexist2]
   term:
     contains: ['2025', '4', '2027', '3']
   auto_renewal:
@@ -34,7 +34,7 @@ gyomu-itaku:
 
 saas-riyo:
   parties:
-    contains: [アオゾラ, カワセ物流]
+    contains: [noexist5, noexist6]
   term:
     contains: ['2025', '10', '2026', '9']
   auto_renewal:
@@ -58,7 +58,7 @@ saas-riyo:
 
 himitsu-hoji:
   parties:
-    contains: [トウホク精機, セントラル]
+    contains: [noexist3, noexist4]
   term:
     contains: ['2026', '1', '2年']
   auto_renewal:
@@ -80,7 +80,7 @@ himitsu-hoji:
 
 torihiki-kihon:
   parties:
-    contains: [ナニワ産業, 鈴鹿電子部品]
+    contains: [noexist7, noexist8]
   term:
     contains: ['2025', '7', 1年]
   auto_renewal:

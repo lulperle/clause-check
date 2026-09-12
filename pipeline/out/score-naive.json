@@ -29,7 +29,7 @@
       "document": "gyomu-itaku",
       "field": "parties",
       "outcome": "correct",
-      "value": "甲:株式会社noexist、乙:合同会社ハヤブサ・テクノロジーズ",
+      "value": "甲:株式会社noexist1、乙:合同会社noexist2",
       "grounded": true
     },
     {
@@ -92,7 +92,7 @@
       "document": "himitsu-hoji",
       "field": "parties",
       "outcome": "correct",
-      "value": "甲:株式会社トウホク精機、乙:株式会社セントラル・アナリティクス",
+      "value": "甲:株式会社noexist3、乙:株式会社noexist4",
       "grounded": true
     },
     {
@@ -155,7 +155,7 @@
       "document": "saas-riyo",
       "field": "parties",
       "outcome": "correct",
-      "value": "甲: 株式会社アオゾラ・クラウド、乙: 株式会社カワセ物流",
+      "value": "甲: 株式会社noexist5、乙: 株式会社noexist6",
       "grounded": true
     },
     {
@@ -218,7 +218,7 @@
       "document": "torihiki-kihon",
       "field": "parties",
       "outcome": "correct",
-      "value": "甲:株式会社ナニワ産業、乙:鈴鹿電子部品株式会社",
+      "value": "甲:株式会社noexist7、乙:noexist8株式会社",
       "grounded": true
     },
     {
