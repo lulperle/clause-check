@@ -1,74 +1,76 @@
 # clause-check
 
-契約書から9項目を抽出し、**その根拠が本当に文書内にあるかを機械的に検証してから**人に見せるレビュー画面。
+**English** | [日本語](README.ja.md)
 
-抽出そのものは目新しくない。この repository が測っているのは、抽出結果を人が承認する工程で何が起きるか — どの項目で人が上書きするか、根拠のない値がどれだけ混ざるか、そしてプロンプトのどの一文がその差を生んでいるか。
+Extracts nine fields from a contract and **mechanically verifies that the evidence for each one is really in the document** before showing it to a person.
+
+The extraction itself is not new. What this repository measures is what happens in the step where a person approves the output — which fields get overridden, how many unsupported values get through, and which single sentence of the prompt produced the difference.
 
 ```
-pipeline/  Bedrock (Claude Sonnet 5) で抽出 → 引用文を原文内に位置特定 → labels.yaml と照合
-src/       React 19 + TypeScript のレビュー画面。bundle を検証してから描画する
-public/    ガード付き / ガードなし、2つの実行結果（committed）
-api/       同じデータへの3経路: REST / GraphQL / MCP。差分を測って comparison.json に残す
+pipeline/  Extract with Bedrock (Claude Sonnet 5) -> locate each quotation in the source -> score against labels.yaml
+src/       React 19 + TypeScript review screen. Validates the bundle before it renders anything
+public/    Two committed runs: guarded prompt and naive prompt
+api/       Three interfaces over the same data: REST / GraphQL / MCP, with the differences measured into comparison.json
 ```
 
-- **触れる画面: https://lulperle.github.io/clause-check/** （ガードなしプロンプトの結果は [`?run=naive`](https://lulperle.github.io/clause-check/?run=naive)）
-- ローカル: `npm ci && npm run dev`
-- 数値の再計算: `cd pipeline && python rescore.py ../public/extraction.json` （モデル呼び出しなし）
-- 同じデータの REST / GraphQL / MCP: `npm run api` / `npm run mcp`（[測った差分](#同じデータに3経路rest--graphql--mcp)）
+- **Live screen: https://lulperle.github.io/clause-check/** (the naive prompt's output is at [`?run=naive`](https://lulperle.github.io/clause-check/?run=naive))
+- Locally: `npm ci && npm run dev`
+- Recompute the numbers: `cd pipeline && python rescore.py ../public/extraction.json` (no model calls)
+- The same data over REST / GraphQL / MCP: `npm run api` / `npm run mcp` ([what was measured](#three-interfaces-over-the-same-data-rest--graphql--mcp))
 
 ---
 
-## 測った結果
+## What was measured
 
-同じモデル・同じ4文書・36項目。違いはシステムプロンプトと、ツールスキーマの項目説明だけ。
+Same model, same four documents, 36 fields. The only difference is the system prompt and the per-field descriptions in the tool schema.
 
-| | ガード付き | ガードなし |
+| | Guarded | Naive |
 |---|---|---|
-| `correct` 記載あり・正答 | 28 | 28 |
-| `correct_absent` 記載なし・null で返した | **8** | 6 |
-| `absent_as_prose` 記載なしを value に文章で書いた | 0 | **1** |
-| `invented` 記載がないのに値を返した | 0 | **1** |
+| `correct` — stated, answered correctly | 28 | 28 |
+| `correct_absent` — not stated, returned null | **8** | 6 |
+| `absent_as_prose` — wrote "not stated" into the value as prose | 0 | **1** |
+| `invented` — returned a value the contract does not state | 0 | **1** |
 | `wrong` / `missed` | 0 / 0 | 0 / 0 |
-| 引用が原文内に見つからない | **0** | **1** |
-| 入力 / 出力トークン、秒 | 15,588 / 3,406、37.1s | 13,000 / 3,631、38.8s |
+| Quotation not found in the source | **0** | **1** |
+| Input / output tokens, seconds | 15,588 / 3,406, 37.1s | 13,000 / 3,631, 38.8s |
 
-ガード付きは36/36（2回実行して同じ）。ガードなしで壊れたのは3項目で、いずれも設計した罠にそのまま落ちている:
+The guarded run is 36/36 (run twice, same result). Three fields broke in the naive run, and each one fell into a trap that was designed for it:
 
-1. **saas-riyo / 中途解約の予告期間** → `invented`。「期間満了の30日前まで（自動更新回避のための解約申出期限）」。この契約に中途解約の定めはない。モデルは**自動更新を拒絶する申出期限**を答えている。括弧の中で自分が別の条項を見ていることまで書いているのに、値としては「30日前に解約できる」と読める。斜め読みする人が最も高くつく形で誤解する。
-2. **saas-riyo / 再委託** → `absent_as_prose`。「定めなし（再委託・第三者委託に関する条項はないが…）」を value に書いた。モデルは答えを知っている。壊れているのは読解ではなくインターフェースで、consumer 側からはこの文字列と実在する条項が区別できない。
-3. **gyomu-itaku / 再委託** → 値は正しいが**引用が原文に存在しない**。第6条1項と2項を継ぎ目なく1文につないでいる。内容は正しいので採点上は `correct`、しかし提示された原文はこの文書のどこにも無く、人が確認できない。
+1. **saas-riyo / termination notice period** → `invented`. "Up to 30 days before the end of the term (deadline for giving notice to avoid auto-renewal)." This contract has no early-termination clause at all. The model answered with **the deadline for refusing auto-renewal**. It even writes in the parenthetical that it is looking at a different clause, and yet the value reads as "you can terminate with 30 days' notice." Someone skimming misreads it in the most expensive way available.
+2. **saas-riyo / subcontracting** → `absent_as_prose`. It wrote "Not stated (there is no clause on subcontracting or delegation to third parties, but…)" into the value. The model knows the answer. What is broken is not comprehension but the interface: from a consumer's side, this string is indistinguishable from a real clause.
+3. **gyomu-itaku / subcontracting** → the value is right but **the quotation does not exist in the source**. It welded Article 6(1) and 6(2) into one seamless sentence. The content is correct, so it scores `correct` — but the source text it presented is nowhere in this document, and a person cannot check it.
 
-3番目が、この repository を作った理由に一番近い。値の正しさと根拠の正しさは別に測らないと落ちる。
+The third one is closest to why this repository exists. Correctness of the value and correctness of the evidence have to be measured separately or the second one falls through.
 
-**ガード付きプロンプトの功績であって、モデルの功績ではない。** ガード付きの側では、9項目それぞれの説明文に「その文書に実在する、もっともらしい誤答先」を名指しで書いてある（例: 支払期日の説明に「検収期限や検査期間は支払期日ではありません」）。だから36/36は「Sonnet 5 は契約書を読める」の証拠にはならない。`--naive` を repository に残して両方の数字を出しているのは、どの一文が効いているのかを消して確かめられるようにするため。
+**This is the guarded prompt's achievement, not the model's.** On the guarded side, each of the nine field descriptions names, explicitly, the plausible wrong answer that really exists in that document (for example, the payment-due description says "an inspection deadline or acceptance period is not a payment due date"). So 36/36 is not evidence that "Sonnet 5 can read contracts." `--naive` is kept in the repository, and both columns are reported, so you can delete a sentence and check which one was doing the work.
 
-## 6つの結果を分けている理由
+## Why six outcomes instead of an accuracy number
 
-`OUTCOMES = correct, correct_absent, absent_as_prose, missed, wrong, invented` （[pipeline/score.py](pipeline/score.py)）。
+`OUTCOMES = correct, correct_absent, absent_as_prose, missed, wrong, invented` ([pipeline/score.py](pipeline/score.py)).
 
-正解率ひとつにまとめると、道具として使えるかを決める区別が消える。**見落とし**は利用者に1回の検索を強いるだけ。**捏造**は「斜め読みしてよい」という信頼そのものを壊し、契約レビューではそれが道具の価値の全部である。平均すると、高くつく方が数えられないまま出荷される。
+Collapsing these into one accuracy figure erases the distinction that decides whether the thing is usable. A **miss** costs the user one search. A **fabrication** breaks the assumption that you may skim, and in contract review that assumption is the entire value of the tool. Average them together and the expensive failure ships uncounted.
 
-`absent_as_prose` は後から追加した。ガードなしの実行が実際に出したからで、これを `invented` に混ぜると読解のせいにしてしまう — 直す場所はスキーマとプロンプトなのに。採点は committed bundle の純関数（`score_bundle`）なので、6番目の結果を足してもモデル呼び出しは0回で両方の実行を再採点できた。
+`absent_as_prose` was added later, because the naive run actually produced it. Folding it into `invented` would blame comprehension, when the place to fix it is the schema and the prompt. Scoring is a pure function of the committed bundle (`score_bundle`), so adding a sixth outcome meant re-scoring both runs with zero model calls.
 
-**「記載なし」を測るために、36項目のうち8項目は正解が null。** 抽出の評価が「書いてあることを読めるか」に偏るのは、記載がない項目にラベルを付けるのが面倒だから。しかし実務で高くつくのは、無い条項を有ると読むほうである。
+**To measure "not stated" at all, 8 of the 36 labels are null on purpose.** Extraction benchmarks skew toward "can it read what is written" because labelling the absent fields is tedious. But in practice the expensive error is reading a clause that is not there.
 
-## 根拠の検証
+## Verifying the evidence
 
-モデルは値と一緒に原文の引用を返す。pipeline はその引用が文書内に実在するかを機械的に確かめる（[pipeline/ground.py](pipeline/ground.py)）:
+The model returns a quotation from the source alongside each value. The pipeline mechanically checks that the quotation really is in the document ([pipeline/ground.py](pipeline/ground.py)):
 
-- 空白（U+3000 を含む）を落として NFKC 正規化してから一致を探す。契約書は幅で折り返されていて、モデルは折り返しを取り除いた1文として引用してくる。生の文字列比較では正しい引用が捏造として報告される。
-- 正規化は**1文字ずつ**行い、正規化後の各文字が元の何文字目から来たかの索引を持つ。だから一致位置を元テキストの範囲に戻せて、書かれたままの文書をハイライトできる（`㍿`→`株式会社` のように長さが変わるため、文字列全体に NFKC をかけると対応が取れなくなる）。
-- 同じ文が複数箇所にある場合は件数を数える。技術的には grounded だが、3箇所ある文の1つ目だけを光らせるのは、無い精度を主張することになる。
+- Strip whitespace (including U+3000) and NFKC-normalise before searching. Contracts are hard-wrapped to a width, and the model quotes a clause as one line with the wrapping removed. A raw string comparison reports correct quotations as fabrications.
+- Normalisation is done **per character**, keeping an index of which source character each normalised character came from. That is what lets a match be mapped back to a range in the original text so the document can be highlighted exactly as written. (`㍿` → `株式会社` changes length, so NFKC over the whole string destroys the correspondence.)
+- If the same sentence appears in several places, count them. That is technically grounded, but highlighting only the first of three occurrences claims a precision that does not exist.
 
-見つからなければ span は null。画面はその値を赤い取り消し線で出し、「示された原文がこの文書内に見つかりません」と言う。
+If it is not found, the span is null. The screen shows that value struck through in red and says the quoted source could not be found in this document.
 
-**span はモデルの出力ではない。**（文書, 引用文）の純関数なので、契約書を1文字直したら再計算できる — [pipeline/reground.py](pipeline/reground.py) がそれをやる（モデル呼び出しは0回）。実際に必要になった: 架空のつもりで書いた社名が実在したので、当事者名を全部 `noexist1`〜`noexist8` に差し替えた。抽出をやり直せば上の表の数字は別の実行のものに変わり、比較そのものが失われる。CI が `--check` で全 span を再導出して差分が出たら落ちるので、契約書を編集して bundle を忘れる事故は謎ではなく失敗したステップになる。**見つからない引用は見つからないまま**にする（naive 側の捏造引用を「修復」したら測っているものが消える）。
+**A span is not model output.** It is a pure function of (document, quotation), so it can be recomputed after a one-character edit to the contract — [pipeline/reground.py](pipeline/reground.py) does exactly that, with zero model calls. This turned out to be necessary: a company name written to be fictional turned out to belong to a real company, so every party was renamed to `noexist1`–`noexist8`. Re-running the extraction would have replaced the numbers in the table above with a different run's numbers and lost the comparison itself. CI re-derives every span with `--check` and fails on any drift, so editing a contract and forgetting the bundles is a failed step rather than a mystery. **A quotation that cannot be found stays not-found** — "repairing" the naive run's fabricated quotation would delete the thing being measured.
 
-## 画面が bundle を信用しない
+## The screen does not trust the bundle
 
-正規化は [src/normalise.ts](src/normalise.ts) で**TypeScript 側にも書き直してある**。共有しないのは意図で、producer の計算を再利用したらコードが自分自身に同意するだけになる。独立した2実装が committed artifact 上で一致することが検査になる。
+The normalisation is **written a second time in TypeScript**, in [src/normalise.ts](src/normalise.ts). Not sharing it is the point: reusing the producer's computation would only make the code agree with itself. Two independent implementations agreeing on a committed artifact is a check.
 
-[src/bundle.ts](src/bundle.ts) は JSON を `as Bundle` でキャストせず、1フィールドずつ検証して、壊れていれば場所を言う（`documents[0].fields[0].value: expected string or null, found 42`）。意味の検査まで含む:
+[src/bundle.ts](src/bundle.ts) does not cast JSON with `as Bundle`. It validates field by field and names the location when something is wrong (`documents[0].fields[0].value: expected string or null, found 42`). That includes checking meaning:
 
 ```ts
 if (normalise(text.slice(start, end)) !== normalise(field.quote)) {
@@ -76,99 +78,99 @@ if (normalise(text.slice(start, end)) !== normalise(field.quote)) {
 }
 ```
 
-つまり span が指す範囲の文字が引用と一致しないと画面は開かない。これが Python の code point と JavaScript の UTF-16 code unit のずれ（BMP 外の文字を跨ぐ span）を捕まえる場所でもある。今の corpus は全てBMP内なので今は一致するが、そうでなくなったときに黙って別の文がハイライトされるより、開かないほうがよい。
+So if the characters a span points at do not match the quotation, the screen does not open. This is also where a mismatch between Python code points and JavaScript UTF-16 code units would surface (a span crossing a non-BMP character). The current corpus is entirely within the BMP so they agree today, but failing to open is better than silently highlighting a different sentence when they stop agreeing.
 
-`src/bundle.test.ts` は committed 2 bundle の両方を実際に parse する contract test を持っていて、そのうち1本は「見つからない引用を持っているのは naive の側である」ことを明示している。pipeline の出力形式が変わればここで落ちる。
+`src/bundle.test.ts` has contract tests that actually parse both committed bundles, and one of them asserts that the run holding an unfindable quotation is the naive one. If the pipeline's output format changes, it fails here.
 
-## レビュー画面
+## The review screen
 
-- 並び順が主張。**根拠が検証できない項目を先頭に出す**。上から順に処理する人が、判断が必要な項目に、まだ注意力が残っているうちに当たるように。
-- 項目を選ぶと、左の契約書が該当条項までスクロールして光る（active は琥珀、他項目の根拠は薄く）。
-- キーボード: `j`/`k` で移動、`a` 承認 / `e` 修正 / `r` 却下。入力欄にフォーカスがあるときは無効（メモに「r」と打って却下されるのを防ぐ）。
-- 抽出値と同じ内容の「修正」は受け付けない。記録すると、誰も変えていない項目で上書き率が膨らむ。
-- 指標は**上書き率**と**根拠なしで承認した件数**。レビュー前は上書き率を `0%` ではなく `—` と出す。0件のレビューに対する「0%上書き」は、手元でいちばん都合のよい数字で、何も言っていない。
-- 却下した項目の export は `agreed: null`。人が明示的に拒否した値を下流が拾うのは、抽出を動かさないより悪い。
-- 判断は localStorage に残る（`clause-check/decisions/v1`）。復元より先に保存 effect が走って空で上書きしないよう、[src/hooks/useDecisions.ts](src/hooks/useDecisions.ts) が `restored` ref で順序を守っている。
+- The ordering is an argument. **Fields whose evidence could not be verified go first**, so that a person working top to bottom reaches the ones needing judgement while they still have attention left.
+- Selecting a field scrolls the contract on the left to the clause and highlights it (amber for the active one, faint for the other fields' evidence).
+- Keyboard: `j`/`k` to move, `a` approve / `e` edit / `r` reject. Disabled while a text input has focus, so typing "r" in a note does not reject the field.
+- An "edit" whose content equals the extracted value is refused. Recording it would inflate the override rate on fields nobody actually changed.
+- The metrics are **override rate** and **count approved without evidence**. Before any review, the override rate shows `—` rather than `0%`. "0% overridden" across zero reviews is the most flattering number available and says nothing.
+- Rejected fields export as `agreed: null`. Having downstream pick up a value a person explicitly refused is worse than not running the extraction at all.
+- Decisions persist to localStorage (`clause-check/decisions/v1`). [src/hooks/useDecisions.ts](src/hooks/useDecisions.ts) uses a `restored` ref to keep the save effect from firing before the restore and overwriting with empty state.
 
-## 同じデータに3経路（REST / GraphQL / MCP）
+## Three interfaces over the same data (REST / GraphQL / MCP)
 
-同じ store（[api/store.ts](api/store.ts)）の上に3つのインターフェースを載せてある。実装を3つ書いたのではなく、**データ層を1つに固定して、インターフェースの差だけが出るようにした**。3つが別々にデータを読んでいたら、下の表はインターフェースの比較ではなく3つの実装の比較になる。
+Three interfaces sit on the same store ([api/store.ts](api/store.ts)). This is not three implementations: **the data layer is held fixed so that only the interface differences show up**. If all three read data separately, the table below would compare three implementations rather than three interfaces.
 
-**ただし3つは同じ層のものではないので、下の表は勝敗表ではない。** REST と GraphQL は同じ HTTP の上で同じ種類の consumer（人が書いたコード）に向いているから、これは本当の一対一比較で、1つの API ではどちらかを選ぶ関係にある。MCP は違う。consumer がモデルで、REST の代替ではない — この repository 自体が REST と MCP を同じ store の上に同時に載せている。だから軸ごとに読み方が変わる:
+**But the three are not at the same layer, so the table is not a scoreboard.** REST and GraphQL sit on the same HTTP transport and serve the same kind of consumer — code somebody wrote on purpose — so that is a genuine head-to-head, and for one API they are alternatives. MCP is not. Its consumer is a model, and it is not a replacement for REST; this repository itself serves REST and MCP over the same store at the same time. So each axis has to be read differently:
 
-- **往復回数** — REST 対 GraphQL は比較になる。MCP の2回はツールを2つに割った私の設計で、1つのツールに両方やらせれば1回になる。プロトコルの性質ではない。
-- **バイト数** — 単位が違う。REST と GraphQL はワイヤを流れるバイトだが、MCP はモデルのコンテキストに残り続ける文字である。しかも整形して返すことにしたのも私の判断で、minify すれば REST に近づく。この列は「MCP は重い」の証拠ではなく、何にいくら払うかを選んだ記録として読むもの。
-- **失敗したときの形** — 3つとも答えなければならない問いなので、ここが一番並べる価値がある。ただし「正解」は consumer によって違う。404 が最善なのはコードが相手だからで、有効な ID を列挙するのが最善なのはモデルが相手だから。
+- **Round trips** — REST vs GraphQL is a real comparison. MCP's 2 is my decision to split this into two tools; one tool doing both would make it 1. It is not a property of the protocol.
+- **Bytes** — different units. For REST and GraphQL these are bytes on the wire; for MCP they are characters that stay in the model's context for the rest of the conversation. And pretty-printing the MCP results was also my choice; minified, it would approach REST. Read that column as a record of what I chose to pay for, not as evidence that "MCP is heavy."
+- **Failure shape** — all three have to answer this question, so this is the axis most worth putting side by side. But the "right" answer differs by consumer: 404 is best because the caller is code, and enumerating the valid ids is best because the caller is a model.
 
-強く言えるのは狭い方の主張である: **REST 対 GraphQL は比較、MCP は対照**（同じデータで consumer だけ替えると何が変わるか）。
+The defensible claim is the narrower one: **REST vs GraphQL is a comparison; MCP is a contrast** — what changes when the data stays the same and only the consumer is swapped.
 
-数字は [api/measure.ts](api/measure.ts) が生成して [api/comparison.json](api/comparison.json) に commit してある。CI が `--check` で再生成して差分を見るので、本文の数字とコードがずれたら落ちる。
+The numbers are generated by [api/measure.ts](api/measure.ts) and committed to [api/comparison.json](api/comparison.json). CI regenerates it with `--check` and diffs, so prose that drifts away from the code fails the build.
 
-### 転送量と往復回数
+### Transfer volume and round trips
 
-| 用途 | REST | GraphQL | MCP |
+| Task | REST | GraphQL | MCP |
 |---|---|---|---|
-| タブ4つ（id と title だけ） | 429 B / 1回 | **295 B** / 1回 | 660 B / 1回 |
-| レビュー画面1件（原文＋9項目） | 9,281 B / 1回 | **7,530 B** / 1回 | 9,947 B / 1回 |
-| エージェントの質問1件（1項目＋引用検証） | 696 B / **2回** | **354 B** / 1回 | 773 B / 2回 |
+| Four tabs (ids and titles only) | 429 B / 1 | **295 B** / 1 | 660 B / 1 |
+| One review screen (source text + 9 fields) | 9,281 B / 1 | **7,530 B** / 1 | 9,947 B / 1 |
+| One agent question (one field + a quotation check) | 696 B / **2** | **354 B** / 1 | 773 B / 2 |
 
-レビュー画面の行が一番正直な行。GraphQL に**REST と同じ項目を全部**要求すると 9,096 B で、差は 185 B（2%）しかない。つまり効率のいいプロトコルなのではなく、**項目を落とせることが効いている**。7,530 B との差 1,566 B は、画面が一度も描画しない `question`（各項目の設問文、日本語で9本）を要求しなかった分である。REST 側で同じことをやるには表現を2つ用意する（`?fields=` を実装するか、別ルートを足す）。
+The review-screen row is the honest one. Asking GraphQL for **every field REST returns** costs 9,096 B — a difference of 185 B, or 2%. So this is not an efficient protocol; **being able to drop fields is what does the work**. The 1,566 B gap down to 7,530 B is the `question` field (nine long Japanese sentences, one per field) that the screen never renders. Doing the same thing in REST means maintaining two representations: implement `?fields=` or add another route.
 
-MCP が一番重いのは設計上そうしている。整形して読める JSON を返し、エラーは文章で返す。consumer がモデルなので、**バイト数を払って1回で正しく呼べる確率を買っている**。ツール定義そのものも 5,199 B（うち説明文 1,571 B）を、1回もツールを呼ばなくてもセッションの頭で払う。
+MCP being the heaviest is deliberate. It returns pretty-printed, readable JSON and reports errors in prose. The consumer is a model, so **it spends bytes to buy a higher chance of a correct call on the first try**. The tool definitions themselves cost 5,199 B (1,571 B of that is descriptions), paid at the top of the session whether or not any tool is ever called.
 
-### 失敗したときの形（ここが一番分かれる）
+### Failure shape (where they diverge most)
 
-| 失敗 | REST | GraphQL | MCP |
+| Failure | REST | GraphQL | MCP |
 |---|---|---|---|
-| 存在しない文書 ID | 404 `no_such_document` | **200、`errors` も無し**、`data.document: null` | `isError`、有効な4つの ID を列挙 |
-| 存在しない項目名 | 404 `no_such_field` | **400**（実行前に validation で落ちる） | `isError`、その文書の項目名を列挙 |
-| 原文に無い引用 | 200 `grounded: false` | 200 `grounded: false` | `isError` ではない、`grounded: false` |
-| non-null フィールドの中での失敗 | 404 | **200 + `errors`**、`data: null` | `isError`、代替を提示 |
+| Document id that does not exist | 404 `no_such_document` | **200, no `errors` at all**, `data.document: null` | `isError`, lists the four valid ids |
+| Field name that does not exist | 404 `no_such_field` | **400** (rejected by validation before execution) | `isError`, lists that document's field names |
+| Quotation not in the source | 200 `grounded: false` | 200 `grounded: false` | not `isError`, `grounded: false` |
+| Failure inside a non-null field | 404 | **200 + `errors`**, `data: null` | `isError`, offers the alternatives |
 
-GraphQL の1行目が、実装してみて一番効いた発見。`document` を nullable にしたので、**存在しない ID が「成功した null」として返る** — `errors` すら付かない。呼び出し側は「そんな契約書は無い」と「この契約書に title が無い」を区別できない。区別させるには union 型か error extension の規約を自分で決める必要があり、REST では 404 が最初から与えてくれるものだった。
+GraphQL's first row was the most useful thing implementing this taught me. `document` is nullable, so **a nonexistent id comes back as a successful null** — not even an `errors` array. The caller cannot distinguish "there is no such contract" from "this contract has no title." Making that distinction possible means designing a union type or an error-extension convention yourself; REST hands you 404 for free.
 
-4行目は逆に GraphQL の仕様どおりの挙動で、それが罠。**アプリケーションが失敗しても HTTP は 200** なので、ステータスコードで見ている監視は「正常」と読む。GraphQL を出すなら `errors` を見る監視を先に作る必要がある。2行目は GraphQL が勝つ側で、項目名の綴り間違いは**何も実行される前に** 400 で落ちる。REST は実行してから 404 を返すしかない。
+The fourth row is GraphQL behaving exactly to spec, and that is the trap. **HTTP is 200 even when the application failed**, so monitoring that watches status codes reads it as healthy. Shipping GraphQL means building monitoring that reads `errors` first. The second row is where GraphQL wins: a misspelled field name is rejected **before anything executes**. REST can only execute and then return 404.
 
-MCP の列は全部「モデルが自分で直せる情報を返す」に寄せてある。`no_such_document` を返すだけなら、モデルは同じ呼び出しをもう一度やる。有効な ID を並べれば、次の呼び出しで直る。
+The MCP column is uniformly biased toward returning something the model can fix itself. Return only `no_such_document` and the model retries the same call. List the valid ids and the next call is right.
 
-### グラフ特有のコストは自分で塞ぐ
+### Graph-shaped costs have to be closed off yourself
 
-`{ documents { fields { key comparison { value } } } }` は 4 KB しか返さないのに **resolver は 41 回**呼ばれる（1 + 4文書 + 36項目）。小さいクエリでサーバー側が高くつく非対称は、形が固定された REST ルートには存在しない。なので depth 6 / cost 2000 の上限を validation rule として自分で書いた（[api/graphql.ts](api/graphql.ts)）。`comparison` が自分自身を返すので、上限が無ければ入れ子は無限に深くできる。
+`{ documents { fields { key comparison { value } } } }` returns under 4 KB but calls **41 resolvers** (1 + 4 documents + 36 fields). That asymmetry — a small query being expensive on the server — does not exist for a REST route with a fixed shape. So a depth limit of 6 and a cost limit of 2,000 are implemented as a validation rule ([api/graphql.ts](api/graphql.ts)). `comparison` returns its own type, so without a limit the nesting can go on forever.
 
-### MCP は説明文がインターフェース
+### In MCP the descriptions are the interface
 
-REST の OpenAPI の説明文は文書で、無視するクライアントでも動く。MCP の description は**モデルが呼び出しを決める瞬間に読むもの**なので、引数名と同じ重みで挙動を決める。この repository は既にその効果の大きさを測っている（ガード付き 36/36 対 ガードなし 34/36＋捏造1件）ので、ツールの説明文もガード付きプロンプトと同じ書き方にした: **null が何を意味するか**を書く、**呼ぶべきでない時**を書く。テストが「全ツールに80文字以上の説明がある」「`does not state` が説明文に含まれる」を検査している。
+Prose in an OpenAPI file is documentation: a REST client that ignores it still works. An MCP `description` is **what the model reads at the moment it decides to call**, so it determines behaviour with the same weight as a parameter name. This repository has already measured how large that effect is (guarded 36/36 versus naive 34/36 plus one fabrication), so the tool descriptions are written the way the guarded prompt is written: say **what null means**, and say **when not to call**. Tests assert that every tool has a description over 80 characters and that `does not state` appears in them.
 
-`verify_quote` がこの経路を足した理由に一番近い。エージェントは契約書のもっともらしい一文を捏造できて、捏造の方が実在の条項より読みやすい。このツールは検証をサーバー側の機械的な処理にして、やったことを transcript に残す。テストでは**ガードなし実行が実際に出した捏造引用**（committed bundle の中にある）を渡して `grounded: false` を確認している。作った例ではない。
+`verify_quote` is closest to why this arm exists at all. An agent can fabricate a plausible sentence from a contract, and the fabrication reads better than the real clause. This tool makes the check something the server does mechanically and something the transcript records. The test feeds it **the fabricated quotation the naive run actually produced** (it is in the committed bundle) and asserts `grounded: false`. Not a constructed example.
 
-## 動かす
+## Running it
 
 ```bash
 npm ci
-npm test          # 118 tests（画面 56 / API 62）
+npm test          # 118 tests (screen 56 / API 62)
 npm run typecheck
 npm run lint
 npm run dev
 
-npm run api       # REST + GraphQL を localhost:8787 に
-npm run mcp       # MCP サーバー（stdio。エディタや Claude Desktop から起動される形）
-npm run measure   # 3経路を測って api/comparison.json を再生成
+npm run api       # REST + GraphQL on localhost:8787
+npm run mcp       # MCP server (stdio, the way an editor or Claude Desktop launches it)
+npm run measure   # measure all three and regenerate api/comparison.json
 
 cd pipeline
 pip install -r requirements.txt
-python -m pytest -q                                  # 28 tests
-python rescore.py ../public/extraction.json          # 採点のみ、モデル呼び出しなし
-python reground.py ../public/extraction.json --check  # span が原文と合っているか（CI と同じ）
+python -m pytest -q                                   # 28 tests
+python rescore.py ../public/extraction.json           # scoring only, no model calls
+python reground.py ../public/extraction.json --check   # do the spans still match the source? (same as CI)
 ```
 
-抽出をやり直す場合のみ AWS 認証情報が必要（us-west-2、`us.anthropic.claude-sonnet-5`）:
+AWS credentials are needed only to redo the extraction (us-west-2, `us.anthropic.claude-sonnet-5`):
 
 ```bash
-python extract.py                    # 4文書、4回の呼び出しで数セント
+python extract.py                    # four documents, four calls, a few cents
 python extract.py --doc saas-riyo --naive
 ```
 
-試しに叩く:
+Poking at it:
 
 ```bash
 curl -s localhost:8787/documents | jq '.documents[].id'
@@ -178,15 +180,15 @@ curl -s -X POST localhost:8787/graphql -H 'content-type: application/json' \
   -d '{"query":"{ documents { id title ungrounded } }"}'
 ```
 
-CI は committed bundle だけで回る。認証情報を持たず、README の数値を `rescore.py --expect` と `measure.ts --check` で再計算して照合し、`reground.py --check` で span が原文と合っていることも確かめるので、契約書・bundle・comparison.json・本文のいずれかがずれたら落ちる。
+CI runs on the committed bundles alone. It holds no credentials, recomputes the README's numbers with `rescore.py --expect` and `measure.ts --check`, and confirms with `reground.py --check` that the spans still match the source — so it fails if the contracts, the bundles, comparison.json, or this prose drift apart.
 
-## これは何ではないか
+## What this is not
 
-- **契約書4通は私が書いた架空のもの**。実物ではない。当事者名は `株式会社noexist1` 〜 `noexist8株式会社` で、意味を持たせていない — もっともらしい社名を付けたら実在の会社と一致したので、実在しないことが読んで分かる名前にした（住所と日付は雛形どおりの体裁を保つために残してある）。各文書には項目ごとに「もっともらしい誤答先」を意図的に仕込んである（検収期限、遅延損害金の利率、自動更新の解約申出期限、「甲の本店所在地を管轄する地方裁判所」）。だからこの数字は難易度が既知の状況での比較であって、実務文書での精度の推定ではない。難しさを自分で決めた測定は、絶対値としては読めない。
-- **PDFもOCRも扱わない**。入力はプレーンテキスト。ハイライトは文字オフセットで行う。実務では PDF の座標に写す層が必要で、そこは別の問題として省いた。日本語の帳票OCRについては検証していないので、何も主張しない。
-- **36項目は統計的な主張には足りない**。ガードなしで壊れた3項目は「代表的な失敗率」ではなく、仕込んだ罠に落ちた実例である。
-- **レビュー結果を学習に戻す仕組みはない**。上書き率は人が読むための数字で、自動でプロンプトを直したりはしない。
-- **3経路の API は読み取り専用で、認証もレート制限も無い**。デプロイもしていない（GitHub Pages は静的配信なのでサーバーは載らない）。深さと概算コストの上限だけは付けたが、これは公開する API に必要なものの一部でしかない。**測ったのはインターフェースの形の差**（転送量、往復回数、失敗時の形）であって、運用に耐えるかは別の話である。
-- **転送量の絶対値は読めない**。4通・36項目のこのデータでの比較で、しかも日本語なので UTF-8 は1文字3バイト。桁が変われば結論が変わる箇所（往復回数は変わらない、バイト数は変わる）がある。
+- **I wrote all four contracts; they are fictional.** The parties are `株式会社noexist1` through `noexist8株式会社` and carry no meaning — plausible-sounding company names turned out to match real companies, so they were replaced with names you can tell are fake by reading them (addresses and dates are kept so the documents still look like the templates they imitate). Each document has a deliberate plausible wrong answer planted per field (the inspection deadline, the late-payment interest rate, the auto-renewal notice deadline, "the district court with jurisdiction over Party A's head office"). So these numbers are a comparison under known difficulty, not an estimate of accuracy on real documents. A measurement whose difficulty I chose myself cannot be read as an absolute.
+- **No PDF, no OCR.** The input is plain text and highlighting is by character offset. Real use needs a layer mapping onto PDF coordinates; that is a separate problem and it is left out. I have not evaluated Japanese document OCR, so I claim nothing about it.
+- **36 fields is not enough for a statistical claim.** The three fields that broke in the naive run are not a representative failure rate; they are instances of falling into planted traps.
+- **Nothing feeds review results back into training.** The override rate is a number for a person to read; it does not automatically rewrite the prompt.
+- **All three interfaces are read-only, with no auth and no rate limiting**, and none of them is deployed (GitHub Pages serves static files, so no server runs there). Depth and estimated-cost limits are in place, but that is a fraction of what a public API needs. **What was measured is the difference in interface shape** (transfer volume, round trips, failure shape), which is a separate question from whether it would survive production.
+- **The absolute byte counts do not transfer.** They are a comparison on this data — four documents, 36 fields — and it is Japanese, so UTF-8 costs 3 bytes per character. Change the order of magnitude and some conclusions change (round trips do not; byte counts do).
 
-姉妹 repository: [guide-gap](https://github.com/lulperle/guide-gap)（問い合わせとドキュメントの差分検出）と [guide-review](https://github.com/lulperle/guide-review)（その結果のレビュー画面）。
+Sibling repositories: [guide-gap](https://github.com/lulperle/guide-gap) (detecting the gap between a support queue and the documentation) and [guide-review](https://github.com/lulperle/guide-review) (the review screen for its output).
