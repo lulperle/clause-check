@@ -69,6 +69,12 @@ jobs:
         with:
           python-version: '3.13'
       - run: pip install -r pipeline/requirements.txt
+      # Every span is a character offset into the contract text the bundle carries, so
+      # editing a contract without regrounding leaves spans pointing at the wrong clause --
+      # a failure that parses fine and misleads a reader. This recomputes them and fails on
+      # any drift, before the tallies below are trusted.
+      - working-directory: pipeline
+        run: python reground.py ../public/extraction.json ../public/extraction-naive.json --check
       - working-directory: pipeline
         run: |
           python rescore.py ../public/extraction.json \

@@ -62,6 +62,8 @@ api/       同じデータへの3経路: REST / GraphQL / MCP。差分を測っ�
 
 見つからなければ span は null。画面はその値を赤い取り消し線で出し、「示された原文がこの文書内に見つかりません」と言う。
 
+**span はモデルの出力ではない。**（文書, 引用文）の純関数なので、契約書を1文字直したら再計算できる — [pipeline/reground.py](pipeline/reground.py) がそれをやる（モデル呼び出しは0回）。実際に必要になった: 架空のつもりで書いた社名が実在したので差し替えたが、抽出をやり直せば上の表の数字が変わってしまい、比較そのものが失われる。CI が `--check` で全 span を再導出して差分が出たら落ちるので、契約書を編集して bundle を忘れる事故は謎ではなく失敗したステップになる。**見つからない引用は見つからないまま**にする（naive 側の捏造引用を「修復」したら測っているものが消える）。
+
 ## 画面が bundle を信用しない
 
 正規化は [src/normalise.ts](src/normalise.ts) で**TypeScript 側にも書き直してある**。共有しないのは意図で、producer の計算を再利用したらコードが自分自身に同意するだけになる。独立した2実装が committed artifact 上で一致することが検査になる。
@@ -99,12 +101,12 @@ if (normalise(text.slice(start, end)) !== normalise(field.quote)) {
 | 用途 | REST | GraphQL | MCP |
 |---|---|---|---|
 | タブ4つ（id と title だけ） | 429 B / 1回 | **295 B** / 1回 | 660 B / 1回 |
-| レビュー画面1件（原文＋9項目） | 9,431 B / 1回 | **7,680 B** / 1回 | 10,097 B / 1回 |
+| レビュー画面1件（原文＋9項目） | 9,399 B / 1回 | **7,648 B** / 1回 | 10,065 B / 1回 |
 | エージェントの質問1件（1項目＋引用検証） | 696 B / **2回** | **354 B** / 1回 | 773 B / 2回 |
 
-レビュー画面の行が一番正直な行。GraphQL に**REST と同じ項目を全部**要求すると 9,246 B で、差は 185 B（2%）しかない。つまり効率のいいプロトコルなのではなく、**項目を落とせることが効いている**。7,680 B との差 1,566 B は、画面が一度も描画しない `question`（各項目の設問文、日本語で9本）を要求しなかった分である。REST 側で同じことをやるには表現を2つ用意する（`?fields=` を実装するか、別ルートを足す）。
+レビュー画面の行が一番正直な行。GraphQL に**REST と同じ項目を全部**要求すると 9,214 B で、差は 185 B（2%）しかない。つまり効率のいいプロトコルなのではなく、**項目を落とせることが効いている**。7,648 B との差 1,566 B は、画面が一度も描画しない `question`（各項目の設問文、日本語で9本）を要求しなかった分である。REST 側で同じことをやるには表現を2つ用意する（`?fields=` を実装するか、別ルートを足す）。
 
-MCP が一番重いのは設計上そうしている。整形して読める JSON を返し、エラーは文章で返す。consumer がモデルなので、**バイト数を払って1回で正しく呼べる確率を買っている**。ツール定義そのものも 5,200 B（うち説明文 1,572 B）を、1回もツールを呼ばなくてもセッションの頭で払う。
+MCP が一番重いのは設計上そうしている。整形して読める JSON を返し、エラーは文章で返す。consumer がモデルなので、**バイト数を払って1回で正しく呼べる確率を買っている**。ツール定義そのものも 5,199 B（うち説明文 1,571 B）を、1回もツールを呼ばなくてもセッションの頭で払う。
 
 ### 失敗したときの形（ここが一番分かれる）
 
@@ -146,8 +148,9 @@ npm run measure   # 3経路を測って api/comparison.json を再生成
 
 cd pipeline
 pip install -r requirements.txt
-python -m pytest -q                                  # 19 tests
+python -m pytest -q                                  # 28 tests
 python rescore.py ../public/extraction.json          # 採点のみ、モデル呼び出しなし
+python reground.py ../public/extraction.json --check  # span が原文と合っているか（CI と同じ）
 ```
 
 抽出をやり直す場合のみ AWS 認証情報が必要（us-west-2、`us.anthropic.claude-sonnet-5`）:
@@ -167,7 +170,7 @@ curl -s -X POST localhost:8787/graphql -H 'content-type: application/json' \
   -d '{"query":"{ documents { id title ungrounded } }"}'
 ```
 
-CI は committed bundle だけで回る。認証情報を持たず、README の数値を `rescore.py --expect` と `measure.ts --check` で再計算して照合するので、bundle・comparison.json・本文のいずれかがずれたら落ちる。
+CI は committed bundle だけで回る。認証情報を持たず、README の数値を `rescore.py --expect` と `measure.ts --check` で再計算して照合し、`reground.py --check` で span が原文と合っていることも確かめるので、契約書・bundle・comparison.json・本文のいずれかがずれたら落ちる。
 
 ## これは何ではないか
 

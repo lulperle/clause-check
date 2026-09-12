@@ -14,7 +14,7 @@
 
 gyomu-itaku:
   parties:
-    contains: [ミドリ商事, ハヤブサ]
+    contains: [noexist, ハヤブサ]
   term:
     contains: ['2025', '4', '2027', '3']
   auto_renewal:

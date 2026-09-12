@@ -29,7 +29,7 @@
       "document": "gyomu-itaku",
       "field": "parties",
       "outcome": "correct",
-      "value": "甲: 株式会社ミドリ商事、乙: 合同会社ハヤブサ・テクノロジーズ",
+      "value": "甲: 株式会社noexist、乙: 合同会社ハヤブサ・テクノロジーズ",
       "grounded": true
     },
     {

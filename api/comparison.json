@@ -26,18 +26,18 @@
       "task": "one review screen: contract text and all nine fields",
       "rest": {
         "round_trips": 1,
-        "bytes": 9431
+        "bytes": 9399
       },
       "graphql": {
         "round_trips": 1,
-        "bytes": 7680,
-        "bytes_same_fields": 9246,
+        "bytes": 7648,
+        "bytes_same_fields": 9214,
         "resolver_calls": 2,
         "note": "bytes_same_fields asks for everything REST returns, so REST minus it is envelope overhead; bytes drops the nine question strings the screen never renders"
       },
       "mcp": {
         "round_trips": 1,
-        "bytes": 10097
+        "bytes": 10065
       }
     },
     {
@@ -151,7 +151,7 @@
   ],
   "graph_costs": {
     "fanout_query": "{ documents { fields { key comparison { value } } } }",
-    "fanout_bytes": 4096,
+    "fanout_bytes": 4088,
     "fanout_resolver_calls": 41,
     "depth_limit": 6,
     "cost_limit": 2000,
