@@ -10,7 +10,8 @@ src/       React 19 + TypeScript のレビュー画面。bundle を検証して�
 public/    ガード付き / ガードなし、2つの実行結果（committed）
 ```
 
-- 画面: `npm ci && npm run dev` → http://localhost:5173/ （ガードなしの結果は `?run=naive`）
+- **触れる画面: https://milkwhite-lul.github.io/clause-check/** （ガードなしプロンプトの結果は [`?run=naive`](https://milkwhite-lul.github.io/clause-check/?run=naive)）
+- ローカル: `npm ci && npm run dev`
 - 数値の再計算: `cd pipeline && python rescore.py ../public/extraction.json` （モデル呼び出しなし）
 
 ---
